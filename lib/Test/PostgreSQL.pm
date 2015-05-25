@@ -8,6 +8,7 @@ use Class::Accessor::Lite;
 use Cwd;
 use DBI;
 use File::Temp qw(tempdir);
+use File::Which;
 use POSIX qw(SIGTERM SIGKILL WNOHANG setuid);
 
 our $VERSION = '1.06';
@@ -16,7 +17,6 @@ our $VERSION = '1.06';
 # in which case take the highest version. We append /bin/ and so forth to the path later.
 # Note that these are used only if the program isn't already in the path.
 our @SEARCH_PATHS = (
-    split(/:/, $ENV{PATH}),
     # popular installation dir?
     qw(/usr/local/pgsql),
     # ubuntu (maybe debian as well, find the newest version)
@@ -320,6 +320,8 @@ sub setup {
 sub _find_program {
     my $prog = shift;
     undef $errstr;
+    my $path = which $prog;
+    return $path if $path;
     for my $sp (@SEARCH_PATHS) {
         return "$sp/bin/$prog" if -x "$sp/bin/$prog";
         return "$sp/$prog" if -x "$sp/$prog";
