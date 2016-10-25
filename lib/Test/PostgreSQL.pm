@@ -10,10 +10,11 @@ use DBI;
 use File::Spec;
 use File::Temp;
 use File::Which;
-use POSIX qw(SIGQUIT SIGKILL WNOHANG setuid);
+use POSIX qw(SIGTERM SIGINT SIGQUIT SIGKILL WNOHANG setuid);
 
 our $VERSION = '1.20';
 our $errstr;
+my $pids = {};
 
 # Deprecate use of %Defaults as we want to remove this package global
 use Tie::Hash::Method;
@@ -237,8 +238,19 @@ sub _killpg {
 
 method DEMOLISH($in_global_destruction) {
     local $?;
-    if (defined $self->pid && $self->_owner_pid == $$) {
-      $self->stop
+    if ($in_global_destruction) {
+        # Objects get garbage collected before unblessed references so we use
+        # the database handles data we stashed in $pids since we know that
+        # anything still in there didn't get cleaned up during normal object
+        # destruction.
+
+        foreach my $pid ( keys %$pids ) {
+            _remove_connections($pids->{$pid});
+            _killpg($pid);
+        }
+    }
+    elsif ( defined $self->pid && $self->_owner_pid == $$ ) {
+        $self->stop;
     }
     return;
 }
@@ -281,6 +293,8 @@ method start() {
 
     # create "test" database
     $self->_create_test_database;
+
+    $pids->{$self->pid} = $self->dsn if $self->pid;
 }
 
 # This whole method was mostly cargo-culted from the earlier test-postgresql;
