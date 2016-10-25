@@ -204,6 +204,37 @@ method BUILD($) {
     }
 }
 
+sub _remove_connections {
+    my $dsn = shift;
+    my $dbh;
+    eval { $dbh = DBI->connect($dsn); 1 };
+    return unless $dbh;
+
+    my ($version) = $dbh->selectrow_array('SHOW server_version_num');
+
+    my $pid = $version < 90200 ? 'procpid' : 'pid';
+    my $query = qq{SELECT pg_terminate_backend(pg_stat_activity.$pid) }
+      . qq{FROM  pg_stat_activity }
+      . qq{WHERE pg_stat_activity.datname='test' }
+      . qq{AND $pid <> pg_backend_pid()};
+
+    $dbh->do($query);
+}
+
+sub _killpg {
+    my $pid = shift;
+
+    # kindest to harshest signal
+    foreach my $signal ( SIGTERM, SIGINT, SIGQUIT, SIGKILL ) {
+        kill $signal, $pid;
+        my $timeout = 5;
+        while ( $timeout > 0 and waitpid( $pid, WNOHANG ) == 0 ) {
+            $timeout -= sleep(1);
+        }
+        last if $timeout > 0;
+    }
+}
+
 method DEMOLISH($in_global_destruction) {
     local $?;
     if (defined $self->pid && $self->_owner_pid == $$) {
