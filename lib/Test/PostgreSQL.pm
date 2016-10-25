@@ -240,7 +240,7 @@ method DEMOLISH($in_global_destruction) {
     local $?;
     if ($in_global_destruction) {
         # Objects get garbage collected before unblessed references so we use
-        # the database handles data we stashed in $pids since we know that
+        # the pid and dsn data we stashed in $pids since we expect that
         # anything still in there didn't get cleaned up during normal object
         # destruction.
 
