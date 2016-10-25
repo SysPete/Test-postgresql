@@ -17,7 +17,7 @@ my $t1 = time();
 $pgsql->stop;
 
 my $elapsed = time() - $t1;
-diag("elapsed: $elapsed");
+note("elapsed: $elapsed");
 
 ok(1, "Reached point after calling stop()");
 
