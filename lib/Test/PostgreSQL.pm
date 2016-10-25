@@ -401,7 +401,7 @@ method _try_start($port) {
     return;
 }
 
-method stop($sig = SIGQUIT) {
+method stop() {
     if ( $self->pg_ctl && defined $self->base_dir ) {
         my @cmd = (
             $self->pg_ctl, 'stop', '-s', '-D',
@@ -413,24 +413,9 @@ method stop($sig = SIGQUIT) {
     else {
         # old style or $self->base_dir File::Temp obj already DESTROYed
         return unless defined $self->pid;
-
-        kill $sig, $self->pid;
-        my $timeout = 10;
-        while ($timeout > 0 and waitpid($self->pid, WNOHANG) <= 0) {
-            $timeout -= sleep(1);
-        }
-
-        if ($timeout <= 0) {
-            warn "Pg refused to die gracefully; killing it violently.\n";
-            kill SIGKILL, $self->pid;
-            $timeout = 5;
-            while ($timeout > 0 and waitpid($self->pid, WNOHANG) <= 0) {
-                $timeout -= sleep(1);
-            }
-            if ($timeout <= 0) {
-                warn "Pg really didn't die.. WTF?\n";
-            }
-        }
+        delete $pids->{$self->pid};
+        _remove_connections($self->dsn);
+        _killpg($self->pid);
     }
     $self->pid(undef);
     return;
